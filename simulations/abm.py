@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 import sys
 
 
-N = 10
+N = 100
 
-positions = 0.45 + np.random.uniform(0,0.1,(N,2))
-velocity = np.zeros((N,2))
+positions = 0.45 + np.random.uniform(0,1,(N,2))
+velocity = np.random.uniform(-1,1,(N,2))
 forces  = np.zeros((N,2))
 
 i=0
@@ -21,48 +21,69 @@ ca = 1
 cr = 2
 lr = 0.01
 la = 0.5
-ka = 5
+ka = 0.5
 
 dt = 0.01
 gamma = 1
 D = 0.1
-
 epsilon = sqrt(2*D*dt)
+
+pl = 1
 
 def updateSocial():
     
     for i in range(N):
         forces[i,:]=0
+        dx = 0
+        dy = 0
+        weights = 0
         for j in range(N):
         
             if i==j:
                 continue
-            dx = positions[j,0]-positions[i,0]
-            dy = positions[j,1]-positions[i,1]
-            d = sqrt(dx**2+dy**2)
+            dxj = positions[j,0]-positions[i,0]
+            dyj = positions[j,1]-positions[i,1]
+            d = sqrt(dxj**2+dyj**2)
             
-            forces[i,0]+= -cr*dx*exp(-d/lr)/(lr*d) + ca*dx*exp(-d/la)/(la*d)
-            forces[i,1]+= -cr*dy*exp(-d/lr)/(lr*d) + ca*dy*exp(-d/la)/(la*d)
+            weightj = d**pl
+            weights += weightj
+            dx += dxj*weightj
+            dy += dyj*weightj
+        
+        dx = dx / weights
+        dy = dy / weights
+        d = sqrt(dx**2+dy**2)
+        vx = velocity[i,0]
+        vy = velocity[i,1]
+        
+        v = sqrt(vx**2+vy**2)
+        if v>0:
+            dotp = (dx/d)*(vx/v) + (dy/d)*(vy/v)
+        else:
+            dotp = 0
+        
+        cri = cr*(1.0-dotp)/2
+        cai = ca*(dotp+1.0)/2
+        
+        dfadd = 1.0/(1.0+exp(-(d-la)/ka))
+        forces[i,0]+= -cri*dx*exp(-d/lr)/(lr*d) + cai*dx*dfadd/d
+        forces[i,1]+= -cri*dy*exp(-d/lr)/(lr*d) + cai*dy*dfadd/d
+        
+        
 
 
 def updatePositions():
     
-    velocity[:] = velocity[:] - dt * velocity[:] * gamma + dt * forces + epsilon*np.random.normal(0,1,(N,2))
+    velocity[:] = velocity[:]  + dt * forces - dt * velocity[:] * gamma#+ epsilon*np.random.normal(0,1,(N,2))
+    #velocity[:,0] = np.divide(velocity[:,0],(np.linalg.norm(velocity,axis=1)))
+    #velocity[:,1] = np.divide(velocity[:,1],(np.linalg.norm(velocity,axis=1)))
+    
     positions[:] = positions[:] + dt * velocity
     
    
-# set to random initial conditions on (0,1)x(0,1)
-xpos = np.random.uniform(0,1,N)
-ypos = np.random.uniform(0,1,N)
-
-# set to random inital headings
-heading = np.random.uniform(0,2*pi,N)
-
-# set speed individuals move
-speed = 0.01
 
 # run for this many time steps
-TIMESTEPS = 200
+TIMESTEPS = 2000
 
 # simulate individual movement
 for t in range(TIMESTEPS):
@@ -74,12 +95,12 @@ for t in range(TIMESTEPS):
     #xpos[xpos>1]=xpos[xpos>1]-1
     #ypos[ypos<0]=ypos[ypos<0]+1
     #ypos[ypos>1]=ypos[ypos>1]-1
-    if t%1==0:
+    if t%10==0:
         # plot the positions of all individuals
         plt.clf()
         plt.plot(positions[:,0], positions[:,1],'k.')
         plt.axes().set_aspect('equal')
-        plt.axis([0,1,0,1])
+        plt.axis([-10,10,-10,10])
         plt.draw()
-        plt.pause(0.01)
+        plt.pause(0.001)
         
