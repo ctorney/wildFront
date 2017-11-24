@@ -12,21 +12,29 @@ np.random.seed(0)
 N =200
 sz = 200
 
-vs=1.0
-ls=5
+# what is the point of taking own movement into account
+# would it be the same if neighbours were really approaching or retreating
+lm=10
+la=2
 lc=1.0
 muc=20
 mua=-3
 mum=3
-dt = 0.1
+dt = 0.05
 D = 0.01
-epsilon = sqrt(2*D*dt)/vs
+epsilon = sqrt(2*D*dt)
+DV = 0.25
+epsV = sqrt(2*DV*dt)
+gamma = 1
+
+alpha = gamma+DV
+vs=alpha/gamma
 
 
 positions = np.random.uniform(sz/2,sz/2+sqrt(N)*2*lc,(N,2))
 angles = np.random.uniform(0,2*pi,N)
 speeds = vs*np.ones(N)
-forces  = np.zeros(N)
+Fi_theta  = np.zeros(N)
 
 def heavy(x,y):
     if x>y:
@@ -54,6 +62,14 @@ def updatePositions():
                 continue
             dxj = positions[j,0]-positions[i,0]
             dyj = positions[j,1]-positions[i,1]
+            if dxj>0.5*sz:
+                dxj-=sz
+            if dxj<-0.5*sz:
+                dxj+=sz
+            if dyj>0.5*sz:
+                dyj-=sz
+            if dyj<-0.5*sz:
+                dyj+=sz                
             d = sqrt(dxj**2+dyj**2)
             dxj/=d
             dyj/=d
@@ -62,16 +78,18 @@ def updatePositions():
                 fc_y += (dyj)
                 fc_count+=1
             else:
-                if d>ls:
+                if d>la and d>lm:
                     continue
-                vx = cos(angles[j])-cos(angles[i])
-                vy = sin(angles[j])-sin(angles[i])
+                vx = speeds[j]*cos(angles[j])-speeds[i]*cos(angles[i])
+                vy = speeds[j]*sin(angles[j])-speeds[i]*sin(angles[i])
+                #vx = cos(angles[j])-cos(angles[i])
+                #vy = sin(angles[j])-sin(angles[i])
                 vhat = vx*dxj + vy*dyj
-                if vhat<0:
+                if vhat<0 and d<la:
                     fa_x += -vhat*dxj
                     fa_y += -vhat*dyj
                     fa_count += 1
-                else:
+                elif d<lm:
                     fm_x += vhat*dxj
                     fm_y += vhat*dyj
                     fm_count += 1
@@ -91,13 +109,17 @@ def updatePositions():
         Fx = fc_x+fm_x+fa_x
         Fy = fc_y+fm_y+fa_y
         
-        Fi_theta = -Fx*sin(angles[i])+Fy*cos(angles[i])
+        Fi_theta[i] = -Fx*sin(angles[i])+Fy*cos(angles[i])
 
     #print('======')
     #speeds[:] = speeds[:]  + dt * forces - dt * speeds[:] * gamma 
-    #speeds[speeds<0]=0 
     
-        angles[i] = angles[i] + (dt * Fi_theta/vs) + epsilon*np.random.normal(0,1,1)
+    
+    angles[:] = angles[:] + ((dt * Fi_theta[:]) + epsilon*np.random.normal(0,1,N))#/(0.5+0.5*speeds[:])
+    #speeds[:] = speeds[:] + ((dt * gamma * (vs-speeds[:]))) + (epsV*np.random.normal(0,1,N))*speeds[:]
+    
+    speeds[:] = speeds[:]*np.exp((epsV*np.random.normal(0,1,N))-alpha*dt) + (1.0-np.exp(-alpha*dt))*gamma*vs/alpha
+    #speeds[speeds<0]=0 
     #randvel =  np.exp()
     #velocity[:,0] *= randvel#*np.divide(velocity[:,0],(np.linalg.norm(velocity,axis=1)))
     #velocity[:,1] *= randvel#*np.divide(velocity[:,1],(np.linalg.norm(velocity,axis=1)))
@@ -109,12 +131,13 @@ def updatePositions():
    
 
 # run for this many time steps
-TIMESTEPS = 20000
+TIMESTEPS = 2000
 
+sp1 = np.zeros(TIMESTEPS)
 # simulate individual movement
 for t in range(TIMESTEPS):
     # individuals move in direction defined by heading with fixed speed
-    
+  #  print(t)
     updatePositions()
     # boundary conditions are periodic
 
@@ -123,17 +146,18 @@ for t in range(TIMESTEPS):
     positions[positions[:,1]<0,1]=positions[positions[:,1]<0,1]+sz
     positions[positions[:,1]>sz,1]=positions[positions[:,1]>sz,1]-sz
     
+    sp1[t]=speeds[0]
     #xpos[xpos>1]=xpos[xpos>1]-1
     #ypos[ypos<0]=ypos[ypos<0]+1
     #ypos[ypos>1]=ypos[ypos>1]-1
     if t%10==0:
         # plot the positions of all individuals
         plt.clf()
-        #velx = np.divide(velocity[:,0],(np.linalg.norm(velocity,axis=1)))
-        #vely = np.divide(velocity[:,1],(np.linalg.norm(velocity,axis=1)))
         plt.quiver(positions[:,0], positions[:,1],np.cos(angles), np.sin(angles))
         plt.axes().set_aspect('equal')
         plt.axis([0,sz,0,sz])
         plt.draw()
         plt.pause(0.001)
-        
+plt.figure()
+plt.plot(sp1)
+#print(np.mean(sp1),gamma*vs/(gamma+D))
