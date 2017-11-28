@@ -7,16 +7,16 @@ import matplotlib.pyplot as plt
 import sys
 import random
 
-random.seed(0)
-np.random.seed(0)
-N =200
+random.seed(10)
+np.random.seed(10)
+N =20
 sz = 200
 
 # what is the point of taking own movement into account
 # would it be the same if neighbours were really approaching or retreating
 lm=10
-la=2
-lc=1.0
+la=5
+lc=2.0
 muc=20
 mua=-3
 mum=3
@@ -28,7 +28,7 @@ epsV = sqrt(2*DV*dt)
 gamma = 1
 
 alpha = gamma+DV
-vs=alpha/gamma
+vs=2.0*alpha/gamma
 
 
 positions = np.random.uniform(sz/2,sz/2+sqrt(N)*2*lc,(N,2))
@@ -56,6 +56,7 @@ def updatePositions():
         fc_count = 0
         fm_count = 0
         fa_count = 0
+        coll=1.0
         for j in range(N):
         
             if i==j:
@@ -97,6 +98,7 @@ def updatePositions():
         if fc_count:
             fc_x = -muc*fc_x/fc_count
             fc_y = -muc*fc_y/fc_count
+            coll=5.0
             
         if fa_count:
             fa_x = mua*fa_x/fa_count
@@ -110,15 +112,15 @@ def updatePositions():
         Fy = fc_y+fm_y+fa_y
         
         Fi_theta[i] = -Fx*sin(angles[i])+Fy*cos(angles[i])
-
+        
     #print('======')
     #speeds[:] = speeds[:]  + dt * forces - dt * speeds[:] * gamma 
     
     
     angles[:] = angles[:] + ((dt * Fi_theta[:]) + epsilon*np.random.normal(0,1,N))#/(0.5+0.5*speeds[:])
     #speeds[:] = speeds[:] + ((dt * gamma * (vs-speeds[:]))) + (epsV*np.random.normal(0,1,N))*speeds[:]
-    
-    speeds[:] = speeds[:]*np.exp((epsV*np.random.normal(0,1,N))-alpha*dt) + (1.0-np.exp(-alpha*dt))*gamma*vs/alpha
+    angles[0]=0
+    speeds[:] = speeds[:]*np.exp((epsV*np.random.normal(0,1,N))-alpha*dt) + (1.0-np.exp(-alpha*dt))*gamma*vs*coll/alpha
     #speeds[speeds<0]=0 
     #randvel =  np.exp()
     #velocity[:,0] *= randvel#*np.divide(velocity[:,0],(np.linalg.norm(velocity,axis=1)))
