@@ -8,7 +8,21 @@ from segGenerator import generate
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils.np_utils import to_categorical
 import cv2
+import keras.backend as K
 
+from keras.losses import categorical_crossentropy
+import keras.backend as K
+
+def w_categorical_crossentropy(y_true, y_pred):
+    # y_true is a matrix of weight-hot vectors (like 1-hot, but they have weights instead of 1s)
+    y_true_mask = K.clip(y_true, 0.0, 1.0)  # [0 0 W 0] -> [0 0 1 0] where W >= 1.
+    cce = categorical_crossentropy(y_pred, y_true_mask)  # one dim less (each 1hot vector -> float number)
+    cce = categorical_crossentropy(y_pred, y_true)  # one dim less (each 1hot vector -> float number)
+    print(cce.shape)
+    return cce
+    y_true_weights_maxed = K.max(y_true, axis=-1)  # [0 120 0 0] -> 120 - get weight for each weight-hot vector
+    wcce = cce * y_true_weights_maxed
+    return K.sum(cce)
 
 ny=256
 nx=256
@@ -55,10 +69,10 @@ for layer in model.layers:
 #
 #model = getModel()
 #
-fcnmodel.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+fcnmodel.compile(optimizer='adam', loss=w_categorical_crossentropy, metrics=['accuracy'])
 
-from keras.utils import plot_model
-plot_model( fcnmodel , show_shapes=True , to_file='model.png')
+#from keras.utils import plot_model
+#plot_model( fcnmodel , show_shapes=True , to_file='model.png')
 
 train_path = 'training/segmentation/'
 train_batch_size = 128
@@ -71,8 +85,9 @@ filepath='training/seg_weights.hdf5'
 
 epochs = 200
 
+class_weight = {0 : 1., 1: 100.}
 for ep in range( epochs ):
-    fcnmodel.fit_generator( datagen, steps_per_epoch = 512, nb_epoch = 1)
+    fcnmodel.fit_generator( datagen, steps_per_epoch = 512, nb_epoch = 1) #, class_weight=class_weight)
     fcnmodel.save_weights( filepath + "." + str( ep ) )
     		
 fcnmodel.save_weights( filepath )
