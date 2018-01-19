@@ -17,15 +17,15 @@ def w_categorical_crossentropy(y_true, y_pred):
     # y_true is a matrix of weight-hot vectors (like 1-hot, but they have weights instead of 1s)
     y_true_mask = K.clip(y_true, 0.0, 1.0)  # [0 0 W 0] -> [0 0 1 0] where W >= 1.
     cce = categorical_crossentropy(y_pred, y_true_mask)  # one dim less (each 1hot vector -> float number)
-    cce = categorical_crossentropy(y_pred, y_true)  # one dim less (each 1hot vector -> float number)
-    print(cce.shape)
-    return cce
+#    cce = categorical_crossentropy(y_pred, y_true)  # one dim less (each 1hot vector -> float number)
+#    print(cce.shape)
+ #   return cce#K.ones((128,256,256,1))
     y_true_weights_maxed = K.max(y_true, axis=-1)  # [0 120 0 0] -> 120 - get weight for each weight-hot vector
     wcce = cce * y_true_weights_maxed
-    return K.sum(cce)
+    return (wcce)
 
-ny=256
-nx=256
+ny=128
+nx=128
 ## load segmentation model
 fcnmodel = getSegModel(ny,nx)
 
@@ -69,13 +69,13 @@ for layer in model.layers:
 #
 #model = getModel()
 #
-fcnmodel.compile(optimizer='adam', loss=w_categorical_crossentropy, metrics=['accuracy'])
+fcnmodel.compile(optimizer='rmsprop', loss=w_categorical_crossentropy, metrics=['accuracy'])
 
 #from keras.utils import plot_model
 #plot_model( fcnmodel , show_shapes=True , to_file='model.png')
 
 train_path = 'training/segmentation/'
-train_batch_size = 128
+train_batch_size = 256
 
 datagen = generate(train_path, train_batch_size, nx, ny)
 
