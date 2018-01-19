@@ -14,8 +14,9 @@ def generate(train_path, batch_size  , nx , ny):
     
     n_class=2
     images = glob.glob( train_path + "*.png"  ) 
+ #   images = glob.glob( train_path + "*MOVIE-6-1488-0-0.png"  ) + glob.glob( train_path + "*MOVIE-0-00-0.png"  ) 
     images.sort()
-    segmentations  = glob.glob( train_path + "*.npy"  ) 
+    segmentations  = glob.glob( train_path + "*.npy"  ) #+ glob.glob( train_path + "*MOVIE-0-00-0.npy"  ) 
     segmentations.sort()
 
     assert len( images ) == len(segmentations)
@@ -27,7 +28,9 @@ def generate(train_path, batch_size  , nx , ny):
     while True:
         X = []
         Y = []
-        for _ in range( batch_size) :
+        b=0
+        while b < batch_size:
+ #       for _ in range( batch_size) :
             imname,segname = next(zipped)
             img = cv2.imread(imname, 1)
             minD = min(img.shape[0],img.shape[1])
@@ -37,14 +40,24 @@ def generate(train_path, batch_size  , nx , ny):
             
             img = img[offset:offset+ny,offset:offset+nx,:]
             label = label[offset:offset+ny,offset:offset+nx]
+            if np.sum(label)==0:
+                if random.uniform(0,1)>0.01:
+                    continue
+
             
             train_labels = np.zeros((label.shape[0],label.shape[1],n_class))
             
             
             for c in range(n_class):
-                train_labels[: , : , c ] = (label == c ).astype(int)
+                if c==1:
+                    sf = 100
+                else:
+                    sf = 1
+
+                train_labels[: , : , c ] = (label == c ).astype(int)*sf
 
                         
+            b = b + 1
             X.append( img.astype('float32')/255  )
             Y.append( train_labels )
 
