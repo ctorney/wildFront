@@ -207,6 +207,7 @@ def get_yolo_model(in_w=416,in_h=416, num_class=80, trainable=False, features=Fa
         output = [l_out, m_out, s_out, feature_vector]  
     else:
         output = [l_out, m_out, s_out]  
+ #       output = s_out  
     model = Model(input_image,output)
     return model
 
