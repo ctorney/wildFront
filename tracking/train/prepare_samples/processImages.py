@@ -4,8 +4,9 @@ import os,sys,glob
 import cv2
 import pickle
 sys.path.append("../..") 
+sys.path.append("..") 
 from models.yolo_models import get_yolo_model
-from decoder import decode
+from utils.decoder import decode
 image_dir =  '../train_images_1/'
 train_dir = '../train_images_1/'
 
@@ -21,7 +22,7 @@ nx = width//im_size
 ny = height//im_size
 
 ##################################################
-im_size=416 #size of training imageas for yolo
+#im_size=416 #size of training imageas for yolo
 yolov3 = get_yolo_model(im_size,im_size,trainable=False)
 yolov3.load_weights('../../weights/yolo-v3-coco.h5',by_name=True)
 print(yolov3.summary())

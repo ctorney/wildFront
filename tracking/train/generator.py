@@ -139,6 +139,7 @@ class BatchGenerator(Sequence):
                 
   #      yolo_1 = yolo_1.reshape((yolo_1.shape[0],yolo_1.shape[1],yolo_1.shape[2],3*(self.objects+5)))
        # print(yolo_1.shape)
+ #       return x_batch, yolo_3#  [dummy_yolo_1]
         return x_batch, [yolo_1, yolo_2, yolo_3]#  [dummy_yolo_1]
         return [x_batch, t_batch, yolo_1], [dummy_yolo_1]
 

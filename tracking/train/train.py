@@ -19,7 +19,7 @@ import time
 from generator import BatchGenerator
 sys.path.append("..")
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 from models.yolo_models import get_yolo_model
 
@@ -42,7 +42,7 @@ NMS_THRESHOLD    = 0.3#0.45 # non max suppression - what does this do?
 ignore_thresh=0.8
 # scales - for training maybe?? no idea
 # all seem to be in the custom loss function - some method to weight the loss
-NO_OBJECT_SCALE  = 1.0# upping this to 5 (from 1) to get rid of false positives
+NO_OBJECT_SCALE  = 1.0
 OBJECT_SCALE     = 5.0
 COORD_SCALE      = 2.0
 CLASS_SCALE      = 1.0
@@ -50,7 +50,7 @@ CLASS_SCALE      = 1.0
 if FINE_TUNE:
     BATCH_SIZE       = 4
 else:
-    BATCH_SIZE       = 16
+    BATCH_SIZE       = 4
 WARM_UP_BATCHES  = 0
 TRUE_BOX_BUFFER  = 50
 print(len(LABELS))
@@ -88,14 +88,15 @@ def yolo_loss(y_true, y_pred):
     grid_h      = tf.shape(y_true)[1]
     grid_w      = tf.shape(y_true)[2]
     
+    #net_factor = float32(IMAGE_H/grid_h) # number of pixels in grid cell
 
     # the variable to keep track of number of batches processed
   #  batch_seen = tf.Variable(0.)        
 
     grid_factor = tf.reshape(tf.cast([grid_w, grid_h], tf.float32), [1,1,1,1,2])
 
-    net_h       = IMAGE_H
-    net_w       = IMAGE_W
+    net_h       = IMAGE_H/grid_h
+    net_w       = IMAGE_W/grid_w
     net_factor  = tf.reshape(tf.cast([net_w, net_h], tf.float32), [1,1,1,1,2])
     
     """
@@ -110,7 +111,7 @@ def yolo_loss(y_true, y_pred):
 
     pred_box_xy    = y_pred[..., 0:2]                                                       # t_wh
     pred_box_wh    = y_pred[..., 2:4]                                                       # t_wh
-    pred_box_conf  = y_pred[..., 4]                          # adjust confidence
+    pred_box_conf  = tf.expand_dims(y_pred[..., 4], 4)
     pred_box_class = y_pred[..., 5:]                                            # adjust class probabilities      
     # initialize the masks
     object_mask     = tf.expand_dims(y_true[..., 4], 4)
@@ -245,29 +246,38 @@ def yolo_loss(y_true, y_pred):
 #    xywh_scale = true_box_wh#) * anc / net_factor
  #   xywh_scale = tf.expand_dims(2 - xywh_scale[..., 0] * xywh_scale[..., 1], axis=4) # the smaller the box, the bigger the scale
 
-    xy_delta    = object_mask   * (pred_box_xy-true_box_xy) #* xywh_scale
-    wh_delta    = object_mask   * (pred_box_wh-true_box_wh) #* xywh_scale
-    #loss = tf.Print(loss, [tf.shape(xy_delta)], message='shape \t\t', summarize=1000)
+    xy_delta    = COORD_SCALE * object_mask   * (pred_box_xy-true_box_xy) /net_factor #* xywh_scale
+    wh_delta    = COORD_SCALE * object_mask   * (pred_box_wh-true_box_wh) / net_factor #* xywh_scale
+ #   return loss
     #loss = tf.Print(loss, [tf.shape(object_mask)], message='shape \t\t', summarize=1000)
     #loss = tf.Print(loss, [tf.shape(pred_box_conf)], message='shape \t\t', summarize=1000)
     #loss = tf.Print(loss, [tf.shape(true_box_conf)], message='shape \t\t', summarize=1000)
     #conf_delta  = (object_mask * (pred_box_conf-true_box_conf) * 5) + ((1-object_mask) * conf_delta)
-    obj_delta  = (object_mask * (pred_box_conf-true_box_conf) * 5) 
-    no_obj_delta = ((1-object_mask) * pred_box_conf)
-    class_delta = object_mask * (pred_box_class-true_box_class)
+    obj_delta  = OBJECT_SCALE * object_mask * (pred_box_conf-true_box_conf)  
+    no_obj_delta = NO_OBJECT_SCALE * (1-object_mask) * pred_box_conf
+    class_delta = CLASS_SCALE * object_mask * (pred_box_class-true_box_class)
     #class_delta = object_mask * (pred_box_conf-true_box_conf)
 
  #   closs =       tf.reduce_sum(tf.square(conf_delta),     list(range(1,5))) #+ \
       #     tf.reduce_sum(tf.square(class_delta),    list(range(1,5)))
-    loss = tf.reduce_sum(tf.square(xy_delta),       list(range(1,5))) + \
-           tf.reduce_sum(tf.square(wh_delta),       list(range(1,5))) + \
-           tf.reduce_sum(tf.square(obj_delta),     list(range(1,5))) + \
-           tf.reduce_sum(tf.square(no_obj_delta),     list(range(1,5))) + \
-           tf.reduce_sum(tf.square(class_delta),    list(range(1,5)))
+    loss_xy = tf.reduce_sum(tf.square(xy_delta),       list(range(1,5))) 
+    loss_wh = tf.reduce_sum(tf.square(wh_delta),       list(range(1,5))) 
+    loss_obj= tf.reduce_sum(tf.square(obj_delta),     list(range(1,5))) 
+    lossnobj= tf.reduce_sum(tf.square(no_obj_delta),     list(range(1,5))) 
+    loss_cls= tf.reduce_sum(tf.square(class_delta),    list(range(1,5)))
+
+    loss = loss_xy + loss_wh + loss_obj + lossnobj + loss_cls
+    #loss = loss_cls
+ #   loss = tf.Print(loss, [loss_xy], message='\n\n avg_xy \t', summarize=1000)
+ #   loss = tf.Print(loss, [loss_wh], message='\n\n avg_wh \t', summarize=1000)
+ #   loss = tf.Print(loss, [tf.shape(xy_delta)], message='xy delta shape \t\t', summarize=1000)
+ #   loss = tf.Print(loss, [loss_obj], message='\n\n avg_obj \t', summarize=1000)
+ #   loss = tf.Print(loss, [lossnobj], message='\n\n avg_nobj \t', summarize=1000)
+ #   loss = tf.Print(loss, [loss_cls], message='\n\n avg_cls \t', summarize=1000)
  #   noloss = tf.reduce_sum(tf.square(no_obj_delta),     list(range(1,5))) 
  #   loss = tf.Print(loss, [noloss], message='shape \t\t', summarize=1000)
  #   loss = tf.Print(loss, [tf.shape(closs)], message='conshape \t\t', summarize=1000)
-#    return closs
+    return loss
 
     #loss = tf.cond(tf.less(batch_seen, self.warmup_batches+1), # add 10 to the loss if this is the warmup stage
     #              lambda: loss + 10,
@@ -284,7 +294,6 @@ def yolo_loss(y_true, y_pred):
 #    loss = tf.Print(loss, [grid_h, count], message='count \t', summarize=1000)     
 #    loss = tf.Print(loss, [grid_h, tf.reduce_sum(loss)],  message='loss: \t',   summarize=1000)   
 #
-    return loss
 
 
 
@@ -297,7 +306,7 @@ with open ('train_images_1/annotations-checked.pickle', 'rb') as fp:
 
 num_ims = len(all_imgs)
 indexes = np.arange(num_ims)
-random.shuffle(indexes)
+#random.shuffle(indexes)
 
 num_val = 0#num_ims//10
 
@@ -320,6 +329,8 @@ train_batch = BatchGenerator(
         jitter              = 0.0, 
         norm                = normalize
 )
+print(len(train_batch))
+#sys.exit('bye')
 #train_batch = BatchGenerator(train_imgs, generator_config, norm=normalize, jitter=False)
 #valid_batch = BatchGenerator(valid_imgs, generator_config, norm=normalize, jitter=False)
 
@@ -340,7 +351,7 @@ if FINE_TUNE:
     EPOCHS=200
 else:
     optimizer = Adam(lr=0.5e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-    EPOCHS=25
+    EPOCHS=1250
 #  optimizer = SGD(lr=1e-5, decay=0.0005, momentum=0.9)
 model.compile(loss=yolo_loss, optimizer=optimizer)
 wt_file='../weights/balloon-yolo.h5'
@@ -361,7 +372,7 @@ checkpoint = ModelCheckpoint(wt_file,
 
 start = time.time()
 model.fit_generator(generator        = train_batch, 
-                    steps_per_epoch  = len(train_batch), 
+                    steps_per_epoch  = 10*len(train_batch), 
                     epochs           = EPOCHS, 
                     verbose          = 1,
             #        validation_data  = valid_batch,

@@ -10,7 +10,7 @@ MAX_AREA=235*235
 MIN_LENGTH=1
 MAX_LENGTH=400
 
-obj_thresh, nms_thresh = 0.20, 0.5
+obj_thresh, nms_thresh = 0.80, 0.5
 anchors = [[116,90,  156,198,  373,326],  [30,61, 62,45,  59,119], [10,13,  16,30,  33,23]]
 #anchors = [[53.57159857, 42.28639429, 29.47927551, 51.27168234,37.15496912, 26.17125211]]
 
@@ -242,11 +242,11 @@ def decode(yolos, im_size, save_name, img):
 
     #do_duplicates(boxes)
 # draw bounding boxes on the image using labels
-    draw_boxes(img, boxes) 
+    #draw_boxes(img, boxes) 
 
 # write the image with bounding boxes to file
-    if len(boxes)>0:
-        cv2.imwrite(save_name, (img).astype('uint8')) 
+    #if len(boxes)>0:
+    #    cv2.imwrite(save_name, (img).astype('uint8')) 
 
     return_boxes = []
 
