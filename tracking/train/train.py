@@ -24,23 +24,13 @@ sys.path.append("..")
 from models.yolo_models import get_yolo_model
 
 
-FINE_TUNE=0
-
+FINE_TUNE=1
 
 LABELS = ['aoi']
 IMAGE_H, IMAGE_W = 864, 864
 GRID_H,  GRID_W  = 27, 27
 # each cell is going to be 32x32
-BOX              = 3
-CLASS            = len(LABELS)
-CLASS_WEIGHTS    = np.ones(CLASS, dtype='float32')
-OBJ_THRESHOLD    = 0.3#0.5 # this must be for showing the object - should be lower??
-NMS_THRESHOLD    = 0.3#0.45 # non max suppression - what does this do?
 
-# this is the width/height of the anchor boxes - this will be 2,2 for all 5 - maybe - might be better to use pretrained
-#ANCHORS          = [0.57273, 0.677385, 1.87446, 2.06253, 3.33843, 5.47434, 7.88282, 3.52778, 9.77052, 9.16828]
-ignore_thresh=0.8
-# scales - for training maybe?? no idea
 # all seem to be in the custom loss function - some method to weight the loss
 NO_OBJECT_SCALE  = 1.0
 OBJECT_SCALE     = 5.0
@@ -51,37 +41,33 @@ if FINE_TUNE:
     BATCH_SIZE       = 4
 else:
     BATCH_SIZE       = 4
-WARM_UP_BATCHES  = 0
-TRUE_BOX_BUFFER  = 50
-print(len(LABELS))
 
-
-#true_boxes  = Input(shape=(1, 1, 1, TRUE_BOX_BUFFER , 4))
 
 
 train_image_folder = 'train_images_1/' #/home/ctorney/data/coco/train2014/'
+#train_image_folder = './' #DEBUG
 train_annot_folder = 'train_images_1/'
 valid_image_folder = train_image_folder#'/home/ctorney/data/coco/val2014/'
 valid_annot_folder = train_annot_folder#'/home/ctorney/data/coco/val2014ann/'
 
 
-model = get_yolo_model(IMAGE_W,IMAGE_H, num_class=1,trainable=True)
 
 if FINE_TUNE:
-    model.load_weights('../weights/wb-yolo.h5')
+    model = get_yolo_model(IMAGE_W,IMAGE_H, num_class=1,headtrainable=True,trainable=True)
+    model.load_weights('../weights/balloon-yolo.h5')
 else:
+    model = get_yolo_model(IMAGE_W,IMAGE_H, num_class=1,headtrainable=True)
     model.load_weights('../weights/yolo-v3-coco.h5', by_name=True)
 
-print(model.summary())
 
 def yolo_loss(y_true, y_pred):
-    loss = tf.sqrt(tf.reduce_sum(y_pred[0]))
+ #   loss = tf.sqrt(tf.reduce_sum(y_pred[0]))
     # adjust the shape of the y_predict [batch, grid_h, grid_w, 3, 4+1+nb_class]
-    loss = tf.Print(loss, [tf.shape(y_true)], message='prereshape  \t\t', summarize=1000)
+ #   loss = tf.Print(loss, [tf.shape(y_true)], message='prereshape  \t\t', summarize=1000)
     #return loss
  #   y_pred = tf.reshape(y_pred, tf.concat([tf.shape(y_pred)[:3], tf.constant([3, -1])], axis=0))
  #   y_true = tf.reshape(y_true, tf.concat([tf.shape(y_true)[:3], tf.constant([3, -1])], axis=0))
-    loss = tf.Print(loss, [tf.shape(y_pred)], message='shape  \t\t', summarize=1000)
+ #   loss = tf.Print(loss, [tf.shape(y_pred)], message='shape  \t\t', summarize=1000)
  #   return loss
 
     # compute grid factor and net factor
@@ -268,12 +254,12 @@ def yolo_loss(y_true, y_pred):
 
     loss = loss_xy + loss_wh + loss_obj + lossnobj + loss_cls
     #loss = loss_cls
- #   loss = tf.Print(loss, [loss_xy], message='\n\n avg_xy \t', summarize=1000)
- #   loss = tf.Print(loss, [loss_wh], message='\n\n avg_wh \t', summarize=1000)
+   # loss = tf.Print(loss, [loss_xy], message='\n\n avg_xy \t', summarize=1000)
+   # loss = tf.Print(loss, [loss_wh], message='\n\n avg_wh \t', summarize=1000)
  #   loss = tf.Print(loss, [tf.shape(xy_delta)], message='xy delta shape \t\t', summarize=1000)
- #   loss = tf.Print(loss, [loss_obj], message='\n\n avg_obj \t', summarize=1000)
- #   loss = tf.Print(loss, [lossnobj], message='\n\n avg_nobj \t', summarize=1000)
- #   loss = tf.Print(loss, [loss_cls], message='\n\n avg_cls \t', summarize=1000)
+  #  loss = tf.Print(loss, [loss_obj], message='\n\n avg_obj \t', summarize=1000)
+  ##  loss = tf.Print(loss, [lossnobj], message='\n\n avg_nobj \t', summarize=1000)
+   # loss = tf.Print(loss, [loss_cls], message='\n\n avg_cls \t', summarize=1000)
  #   noloss = tf.reduce_sum(tf.square(no_obj_delta),     list(range(1,5))) 
  #   loss = tf.Print(loss, [noloss], message='shape \t\t', summarize=1000)
  #   loss = tf.Print(loss, [tf.shape(closs)], message='conshape \t\t', summarize=1000)
@@ -299,10 +285,19 @@ def yolo_loss(y_true, y_pred):
 
 from operator import itemgetter
 import random
-
+################ DEBUG  ###################
 ### read saved pickle of parsed annotations
-with open ('train_images_1/annotations-checked.pickle', 'rb') as fp:
+with open (train_image_folder + '/annotations-checked.pickle', 'rb') as fp:
     all_imgs = pickle.load(fp)
+### read saved pickle of parsed annotations
+#with open (train_image_folder + '/annotations-checked.pickle', 'rb') as fp: 
+#    all_imgsdb = pickle.load(fp)
+
+#all_imgs=[]
+#all_imgs+=[all_imgsdb[0]]
+#all_imgs+=[all_imgsdb[0]]
+#all_imgs=all_imgs[0]
+            
 
 num_ims = len(all_imgs)
 indexes = np.arange(num_ims)
@@ -351,10 +346,11 @@ if FINE_TUNE:
     EPOCHS=200
 else:
     optimizer = Adam(lr=0.5e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-    EPOCHS=1250
+    EPOCHS=2500
 #  optimizer = SGD(lr=1e-5, decay=0.0005, momentum=0.9)
 model.compile(loss=yolo_loss, optimizer=optimizer)
 wt_file='../weights/balloon-yolo.h5'
+#wt_file='../weights/horses-yolo.h5' # DEBUG
 #optimizer = RMSprop(lr=1e-4, rho=0.9, epsilon=1e-08, decay=0.0)
 early_stop = EarlyStopping(monitor='loss', 
                            min_delta=0.001, 
@@ -372,12 +368,12 @@ checkpoint = ModelCheckpoint(wt_file,
 
 start = time.time()
 model.fit_generator(generator        = train_batch, 
-                    steps_per_epoch  = 10*len(train_batch), 
+                    steps_per_epoch  = len(train_batch), 
                     epochs           = EPOCHS, 
                     verbose          = 1,
             #        validation_data  = valid_batch,
             #        validation_steps = len(valid_batch),
-                    callbacks        = [checkpoint, early_stop],#, tensorboard], 
+            #       callbacks        = [checkpoint, early_stop],#, tensorboard], 
                     max_queue_size   = 3)
 end = time.time()
 print('Training took ' + str(end - start) + ' seconds')
