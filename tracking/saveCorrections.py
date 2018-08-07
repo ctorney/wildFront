@@ -53,17 +53,19 @@ number_of_iterations = 20
 
 # Specify the threshold of the increment
 # in the correlation coefficient between two iterations
-termination_eps = 1e-6;
+termination_eps = 1e-4;
 
 # Define termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
 
 
 for index,  d in dfMovies.iterrows():
+    if index>15:
+        continue
 
     # setup rotation matrix
     angle = float(d['angle'])
-    print(angle)
+ #   print(angle)
     alpha = (90. - angle)*pi/180;
     R = np.array([[1,0,0,0],[0, cos(alpha), -sin(alpha), 0],[0,sin(alpha), cos(alpha),0],[0,0,0,1]])
     T = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0,0, 1, dist],[0, 0, 0, 1]])
@@ -74,24 +76,24 @@ for index,  d in dfMovies.iterrows():
     #noext, ext = os.path.splitext(filename)
     direct, ext = os.path.split(filename)
     noext, _ = os.path.splitext(ext)
-    outfile = direct + '/proc/' + noext + '_stab.avi'
-    output = direct + noext + '_WARP.npy'
+ #   outfile = direct + '/proc/' + noext + '_stab.avi'
+    output = direct + '/proc/' +  noext + '_WARP.npy'
     
     nx=4096
     ny=2160
 
 # open the video
     fps = round(cap.get(cv2.CAP_PROP_FPS))
-    print(fps)
+  #  print(fps)
 
     fStop = round(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     S = (4096,2160)
 
-# reduce to 6 frames a second - change number to required frame rate
-    ds = math.ceil(fps/6)
+# reduce to 4 frames a second - change number to required frame rate
+    ds = math.ceil(fps/4)
 
-    out = cv2.VideoWriter(outfile, cv2.VideoWriter_fourcc('X','V','I','D'), fps/ds, (4096,2160), True)
+ #   out = cv2.VideoWriter(outfile, cv2.VideoWriter_fourcc('X','V','I','D'), fps/ds, (4096,2160), True)
 
 
       
@@ -99,13 +101,13 @@ for index,  d in dfMovies.iterrows():
     first = np.array([])
     warp_matrix = np.eye(3, 3, dtype=np.float32) 
 #warp_matrix = np.eye(2, 3, dtype=np.float32) 
-    ts_full_warp = np.zeros((fStop//ds,3, 3), dtype=np.float32)
+    ts_full_warp = np.zeros((fStop//ds+1,3, 3), dtype=np.float32)
     i=0
     full_warp = np.eye(3, 3, dtype=np.float32)
     sys.stdout.write("\nProcessing movie " + filename + " \n=====================================\n" )
     sys.stdout.flush()
+
     for tt in range(fStop):
-        start_all = time.time()
         # Capture frame-by-frame
         _, in_frame = cap.read()
 
@@ -127,7 +129,7 @@ for index,  d in dfMovies.iterrows():
  #       cv2.imwrite(direct + '/proc/' + str(tt)+'stab.jpg',im2_gray)
         
 
-        start = time.time()
+  #      start = time.time()
         try:
             mask = np.zeros_like(im2_gray)
             mask[im2_gray>0]=1
@@ -138,8 +140,8 @@ for index,  d in dfMovies.iterrows():
         except cv2.error as e:
             warp_matrix = np.eye(3, 3, dtype=np.float32)
             
-        stop = time.time()
-        print('ecc time: ', stop-start)
+ #       stop = time.time()
+     #   print('ecc time: ', stop-start)
         
         # alll moves are accumalated into a matrix
         #full_warp = np.dot(full_warp, np.vstack((warp_matrix,[0,0,1])))
@@ -149,16 +151,16 @@ for index,  d in dfMovies.iterrows():
         ts_full_warp[i,:,:]=combined[:]
         i = i + 1
         # create an empty image like the first frame
-        im2_aligned = np.zeros_like(frame)
+  #      im2_aligned = np.zeros_like(frame)
 #        np.copyto(im2_aligned, first)
         # apply the transform so the image is aligned with the first frame and output to movie file
         #im2_aligned = cv2.warpAffine(frame, full_warp[0:2,:], (S[0],S[1]), dst=im2_aligned, flags=cv2.INTER_LINEAR  , borderMode=cv2.BORDER_TRANSPARENT)
  #       im2_aligned = cv2.warpPerspective(frame, full_warp, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT, flags=cv2.WARP_INVERSE_MAP)
-        im2_aligned = cv2.warpPerspective(frame, combined, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT)
-        out.write(im2_aligned)
+   #     im2_aligned = cv2.warpPerspective(frame, combined, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT)
+ #       out.write(im2_aligned)
         #cv2.imwrite(str(tt)+'stab.jpg',im2_aligned)
-        stop_all = time.time()
-        print('total time: ', stop_all-start_all)
+    #    stop_all = time.time()
+#        print('total time: ', stop_all-start_all)
 
     np.save(output,ts_full_warp)
     cap.release()
