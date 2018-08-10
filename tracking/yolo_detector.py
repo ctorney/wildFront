@@ -45,36 +45,30 @@ class yoloDetector(object):
 
     """
 
- #   anchors = np.array([[53.57159857, 42.28639429], [29.47927551, 51.27168234], [37.15496912, 26.17125211]])
-    
-    anchors = [[116,90,  156,198,  373,326],  [30,61, 62,45,  59,119], [10,13,  16,30,  33,23]]
     obj_thresh=0.5
     nms_thresh=0.4 #0.25
-    nb_box=3
     base = 32.0
 
 
     def __init__(self, width, height, wt_file):
-        self.width = 608#int(round(width / self.base) * self.base)
-        self.height = 608#int(round(height / self.base) * self.base)
+        self.width = int(round(width / self.base) * self.base)
+        self.height = int(round(height / self.base) * self.base)
         self.weight_file = wt_file
         
         self.model = get_yolo_model(self.width, self.height, num_class=1,features = True)
         self.model.load_weights(self.weight_file,by_name=True)
         
 
-    def create_detections(self, image):
+    def create_detections(self, image, warp=None):
         start_all = time.time()
         image = cv2.resize(image, (self.width, self.height))
         new_image = image[:,:,::-1]/255.
         new_image = np.expand_dims(new_image, 0)
-        batches=1
-        process  = np.tile(new_image, (batches,1,1,1))
 
         start = time.time()
-        preds = self.model.predict(process)
+        preds = self.model.predict(new_image)
         stop = time.time()
-        print('yolo time: ', (stop-start)/batches)
+     #   print('yolo time ', stop-start)
         new_boxes = np.zeros((0,261))
         features = preds[3][0]
         for i in range(3):
@@ -89,15 +83,31 @@ class yoloDetector(object):
 
             # select only objects above threshold
             indexes = objectness > self.obj_thresh
+
+            if np.sum(indexes)==0:
+                continue
+
+    #        corner1 = np.column_stack((xpos[indexes]-wpos[indexes]/2.0, ypos[indexes]-hpos[indexes]/2.0))
+    #        corner2 = np.column_stack((xpos[indexes]+wpos[indexes]/2.0, ypos[indexes]+hpos[indexes]/2.0))
+
+#            if warp is not None:
+#                corner1 = np.expand_dims(corner1, axis=0)
+#                corner1 = cv2.perspectiveTransform(corner1,warp)[0]
+#                corner2 = np.expand_dims(corner2, axis=0)
+#                corner2 = cv2.perspectiveTransform(corner2,warp)[0]
+            
+            centres = np.column_stack((xpos[indexes], ypos[indexes]))
+            if warp is not None:
+                centres = np.expand_dims(centres, axis=0)
+                centres = cv2.perspectiveTransform(centres,warp)[0]
+            corner1 = np.column_stack((centres[:,0] - wpos[indexes]/2.0,centres[:,1] - hpos[indexes]/2.0))
+            corner2 = np.column_stack((centres[:,0] + wpos[indexes]/2.0,centres[:,1] + hpos[indexes]/2.0))
+
             skip = features.shape[0]//grid_h
             thisfeat = features[::skip,::skip,:]
             thisfeat = np.expand_dims(thisfeat,2) 
             thisfeat = np.tile(thisfeat,(1,1,3,1))
-            new_boxes = np.append(new_boxes, np.column_stack((xpos[indexes]-wpos[indexes]/2.0, \
-                                         ypos[indexes]-hpos[indexes]/2.0, \
-                                         xpos[indexes]+wpos[indexes]/2.0, \
-                                         ypos[indexes]+hpos[indexes]/2.0, \
-                                         objectness[indexes], thisfeat[indexes])),axis=0)
+            new_boxes = np.append(new_boxes, np.column_stack((corner1, corner2, objectness[indexes], thisfeat[indexes])),axis=0)
 
         # do nms 
         sorted_indices = np.argsort(-new_boxes[:,4])
@@ -120,7 +130,7 @@ class yoloDetector(object):
             detection_list.append(Detection(bbox, confidence, feature))
 
         stop_all = time.time()
-        print('total time: ', stop_all-start_all)
+        #print('total time: ', stop_all-start_all)
         return detection_list
 
 

@@ -154,8 +154,6 @@ for index,  d in dfMovies.iterrows():
   #      im2_aligned = np.zeros_like(frame)
 #        np.copyto(im2_aligned, first)
         # apply the transform so the image is aligned with the first frame and output to movie file
-        #im2_aligned = cv2.warpAffine(frame, full_warp[0:2,:], (S[0],S[1]), dst=im2_aligned, flags=cv2.INTER_LINEAR  , borderMode=cv2.BORDER_TRANSPARENT)
- #       im2_aligned = cv2.warpPerspective(frame, full_warp, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT, flags=cv2.WARP_INVERSE_MAP)
    #     im2_aligned = cv2.warpPerspective(frame, combined, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT)
  #       out.write(im2_aligned)
         #cv2.imwrite(str(tt)+'stab.jpg',im2_aligned)

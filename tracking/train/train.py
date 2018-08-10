@@ -64,7 +64,6 @@ def yolo_loss(y_true, y_pred):
     net_factor  = tf.reshape(tf.cast([net_w, net_h], tf.float32), [1,1,1,1,2])
     
     pred_box_xy    = y_pred[..., 0:2]                                                       # t_wh
-    #pred_box_wh    = y_pred[..., 2:4]                                                       # t_wh
     pred_box_wh    = tf.log(y_pred[..., 2:4])                                                       # t_wh
     pred_box_conf  = tf.expand_dims(y_pred[..., 4], 4)
     pred_box_class = y_pred[..., 5:]                                            # adjust class probabilities      
@@ -72,8 +71,6 @@ def yolo_loss(y_true, y_pred):
     object_mask     = tf.expand_dims(y_true[..., 4], 4)
 
     true_box_xy    = y_true[..., 0:2] # (sigma(t_xy) + c_xy)
-    #£true_box_wh    = y_true[..., 2:4] # t_wh
-    #true_box_wh    = tf.log(tf.cast(y_true[..., 2:4],tf.float32)) # t_wh
     true_box_wh    = tf.where(y_true[...,2:4]>0, tf.log(tf.cast(y_true[..., 2:4],tf.float32)), y_true[...,2:4])
     true_box_conf  = tf.expand_dims(y_true[..., 4], 4)
     true_box_class = y_true[..., 5:]         
@@ -92,34 +89,6 @@ def yolo_loss(y_true, y_pred):
     loss_cls= tf.reduce_sum(tf.square(class_delta),    list(range(1,5)))
 
     loss = loss_xy + loss_wh + loss_obj + lossnobj + loss_cls
-    #loss = loss_xy + loss_wh# + loss_obj + lossnobj# + loss_cls
- #   loss = loss_obj + lossnobj
-    #loss = loss_obj + lossnobj + loss_cls
-    #tots_wh = tf.reduce_sum(pred_box_wh,       list(range(0,5))) 
-
-    #loss = tf.cond(loss_wh[2]>100000, lambda:  tf.Print(loss, [loss_wh[2]], message='\n\n avg_wh \n\n\t', summarize=1000),lambda: loss)
-    #loss = tf.cond(loss_wh[2]>100000, lambda:  tf.Print(loss, [true_box_wh], message='\n\n true_wh \n\n\t', summarize=1000),lambda: loss)
-    #loss = tf.cond(loss_wh[2]>100000, lambda:  tf.Print(loss, [pred_box_wh], message='\n\n pred_wh \n\n\t', summarize=1000),lambda: loss)
-    #loss = tf.cond(loss_wh[2]>100000, lambda:  tf.Print(loss, [net_factor], message='\n\n nfact_wh \n\n\t', summarize=1000),lambda: loss)
-
- #   if loss_wh[2]>1000000:
-  #  loss = tf.Print(loss, [tots_wh], message='\n\n sum wh \t', summarize=1000)
-  #  loss = tf.Print(loss, [loss_wh], message='\n\n avg_wh \n\n\t', summarize=1000)
- #   loss = tf.Print(loss, [loss_xy], message='\n\n avg_xy \n\n\t', summarize=1000)
-  #      loss = tf.Print(loss, [true_box_wh], message='\n\n true_wh \n\n\t', summarize=1000)
-   #     loss = tf.Print(loss, [pred_box_wh], message='\n\n pred_wh \n\n\t', summarize=1000)
-    #loss = tf.Print(loss, [net_factor], message='\n\n netfact_wh \t', summarize=1000)
-    #loss = tf.Print(loss, [grid_w], message=' grid \n\n\t', summarize=1000)
-
-    #ix = int(grid_w*84/107)
-    #iy = int(grid_w*23/107)
- #   loss = tf.Print(loss, [tf.shape(y_true)], message='\n\n true \t', summarize=1000)
- #   loss = tf.Print(loss, [tf.shape(y_pred)], message='\n\n pred \t', summarize=1000)
- #   loss = tf.Print(loss, [y_pred[0,:,:,2,0:4]], message='\n\n pred \t', summarize=1000)
- #   loss = tf.Print(loss, [loss_obj], message='\n\n avg_obj \t', summarize=1000)
- #   loss = tf.Print(loss, [lossnobj], message='\n\n avg_noobj \t', summarize=1000)
- #   loss = tf.Print(loss, [loss_cls], message='\n\n avg_cls \t', summarize=1000)
- 
     return loss
 
 
@@ -197,7 +166,7 @@ model.fit_generator(generator        = train_batch,
                     verbose          = 1,
             #        validation_data  = valid_batch,
             #        validation_steps = len(valid_batch),
- #                   callbacks        = [checkpoint, early_stop],#, tensorboard], 
+                    callbacks        = [checkpoint, early_stop],#, tensorboard], 
                     max_queue_size   = 3)
 model.save_weights(wt_file)
 end = time.time()
