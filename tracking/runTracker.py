@@ -69,6 +69,8 @@ for index,  d in dfMovies.iterrows():
     for i in range(nframes):
         ret, in_frame = cap.read() 
 
+        if (i%(fps*60*1)==0):
+            tracker = Tracker(metric,max_age=12)#,max_iou_distance=1.0)
 
         if (i%ds!=0):
             continue
@@ -131,4 +133,3 @@ for index,  d in dfMovies.iterrows():
     with open(outputdatafile, "w") as output:
         writer = csv.writer(output, lineterminator='\n')
         writer.writerows(results)
-    break

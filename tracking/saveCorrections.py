@@ -15,6 +15,7 @@ np.set_printoptions(precision=3,suppress=True)
 DATAHOME = '/home/staff1/ctorney/data/wildebeest_front/'
 inputname = DATAHOME + '/wildfront.csv'
 dfMovies = pd.read_csv(inputname)
+dfMovies = dfMovies[dfMovies['ir']==0]
 
 input_width = 4096
 input_height = 2160
@@ -53,15 +54,13 @@ number_of_iterations = 20
 
 # Specify the threshold of the increment
 # in the correlation coefficient between two iterations
-termination_eps = 1e-4;
+termination_eps = 1e-6;
 
 # Define termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
 
 
 for index,  d in dfMovies.iterrows():
-    if index>15:
-        continue
 
     # setup rotation matrix
     angle = float(d['angle'])
@@ -76,7 +75,7 @@ for index,  d in dfMovies.iterrows():
     #noext, ext = os.path.splitext(filename)
     direct, ext = os.path.split(filename)
     noext, _ = os.path.splitext(ext)
- #   outfile = direct + '/proc/' + noext + '_stab.avi'
+    outfile = direct + '/proc/' + noext + '_stab.avi'
     output = direct + '/proc/' +  noext + '_WARP.npy'
     
     nx=4096
@@ -93,17 +92,15 @@ for index,  d in dfMovies.iterrows():
 # reduce to 4 frames a second - change number to required frame rate
     ds = math.ceil(fps/4)
 
- #   out = cv2.VideoWriter(outfile, cv2.VideoWriter_fourcc('X','V','I','D'), fps/ds, (4096,2160), True)
+    #out = cv2.VideoWriter(outfile, cv2.VideoWriter_fourcc('X','V','I','D'), fps/ds, (4096,2160), True)
 
 
       
     im1_gray = np.array([])
-    first = np.array([])
-    warp_matrix = np.eye(3, 3, dtype=np.float32) 
-#warp_matrix = np.eye(2, 3, dtype=np.float32) 
-    ts_full_warp = np.zeros((fStop//ds+1,3, 3), dtype=np.float32)
-    i=0
-    full_warp = np.eye(3, 3, dtype=np.float32)
+    warp_matrix = np.eye(3, 3, dtype=np.float64) 
+    ts_full_warp = np.zeros((fStop//ds+1,3, 3), dtype=np.float64)
+    i=-1
+    full_warp = np.eye(3, 3, dtype=np.float64)
     sys.stdout.write("\nProcessing movie " + filename + " \n=====================================\n" )
     sys.stdout.flush()
 
@@ -113,6 +110,12 @@ for index,  d in dfMovies.iterrows():
 
         if (tt%ds!=0):
             continue
+        if (tt%(fps*60*1)==0):
+            full_warp = np.eye(3, 3, dtype=np.float64)
+            im1_gray = np.array([])
+        i = i + 1
+ #       if i<=1680:
+ #           continue
         frame = cv2.undistort(in_frame,camera_matrix,dc)
         sys.stdout.write('\r')
         sys.stdout.write("[%-20s] %d%% %d " % ('='*int(20*tt/float(fStop)), int(100.0*tt/float(fStop)),tt))
@@ -121,10 +124,9 @@ for index,  d in dfMovies.iterrows():
             # enhance contrast in the image
             im1_unwarp = cv2.equalizeHist(cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY))
             im1_gray = cv2.warpPerspective(im1_unwarp, M2, (S[0],S[1]),flags=cv2.WARP_INVERSE_MAP)
-            first = frame.copy()
         
         im2_unwarp =  cv2.equalizeHist(cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY))
-        im2_unwarp[im2_unwarp>200]=0
+ #       im2_unwarp[im2_unwarp>200]=0
         im2_gray = cv2.warpPerspective(im2_unwarp, M2, (S[0],S[1]),flags=cv2.WARP_INVERSE_MAP)
  #       cv2.imwrite(direct + '/proc/' + str(tt)+'stab.jpg',im2_gray)
         
@@ -132,12 +134,13 @@ for index,  d in dfMovies.iterrows():
   #      start = time.time()
         try:
             mask = np.zeros_like(im2_gray)
-            mask[im2_gray>0]=1
+            mask[(im2_gray>1)&(im1_gray>1)]=1
             # find difference in movement between this frame and the last frame
             (cc, warp_matrix) = cv2.findTransformECC(im1_gray,im2_gray,warp_matrix, warp_mode, criteria, inputMask=mask)    
             # this frame becames the last frame for the next iteration
             im1_gray = im2_gray.copy()
         except cv2.error as e:
+            print('error', i)
             warp_matrix = np.eye(3, 3, dtype=np.float32)
             
  #       stop = time.time()
@@ -149,20 +152,18 @@ for index,  d in dfMovies.iterrows():
         full_warp = np.dot(warp_matrix,full_warp)
         combined = np.linalg.inv(np.dot(M2,full_warp))
         ts_full_warp[i,:,:]=combined[:]
-        i = i + 1
-        # create an empty image like the first frame
-  #      im2_aligned = np.zeros_like(frame)
-#        np.copyto(im2_aligned, first)
-        # apply the transform so the image is aligned with the first frame and output to movie file
-   #     im2_aligned = cv2.warpPerspective(frame, combined, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT)
- #       out.write(im2_aligned)
-        #cv2.imwrite(str(tt)+'stab.jpg',im2_aligned)
-    #    stop_all = time.time()
-#        print('total time: ', stop_all-start_all)
+        
+
+        ##############################
+        ########output movie##########
+        ##############################
+        #im2_aligned = np.zeros_like(frame)
+        #im2_aligned = cv2.warpPerspective(frame, combined, (S[0],S[1]), dst=im2_aligned, borderMode=cv2.BORDER_TRANSPARENT)
+        #out.write(im2_aligned)
 
     np.save(output,ts_full_warp)
     cap.release()
-  #  out.release()
+ #   out.release()
 
 
 
