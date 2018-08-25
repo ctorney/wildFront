@@ -1,20 +1,21 @@
 import cv2
 import glob
 import numpy as np
-import os
-
+import os,sys
+import pandas as pd
 # set the number of training samples to create
-n_sample = 100
+n_sample = 1000
 
 # set the directory to save the images, this will save to a
 # directory called train_ims that should be in the current directory
-sample_dir = '../train_images_1/'
+data_dir = '/home/staff1/ctorney/data/wildebeest_front/'
+sample_dir = data_dir + 'still_vis/'
 
-# create a list of all movies to use to create the samples, this will make
-# a list of all files that end with MP4 in the current directory - should
-# be changed to the file format used (avi, mpg etc)
+df = pd.read_csv(data_dir + 'wildfront.csv')
 
-filelist = glob.glob("/home/ctorney/data/tz-2017/vis/DJI_0363.MP4")
+df = df[df['ir']==0]
+filelist = df['filename'].tolist()
+
 
 # the following lines determine how many images to take from each movie
 # first determine how many movies in total
@@ -32,15 +33,13 @@ for i in range(n_sample-fpm*count):
 for i in range(count):
     # get the movie filename
     m_name = filelist[i]
-    print(m_name)
     # get the number of frames to save
     m_count= counts[i]
     # get the moviename without the extension to use as the image filename
-    head, tail = os.path.split(m_name)
-    noext, ext = os.path.splitext(tail)
+    noext, ext = os.path.splitext(os.path.basename(m_name))
     
     # open the movie and get its frame count
-    cap = cv2.VideoCapture(m_name)
+    cap = cv2.VideoCapture(data_dir + m_name)
     m_length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
     # choose the frames to select at random
@@ -48,10 +47,8 @@ for i in range(count):
     
     # go through the frame list, read the frame and then save to a png file   
     for f_num in f_list:
-        print(f_num)
         cap.set(cv2.CAP_PROP_POS_FRAMES,f_num)
         ret, frame = cap.read()
         if ret:
             cv2.imwrite(sample_dir + noext +'-'+ str(f_num) + '.png',frame)
-            print(sample_dir + noext +'-'+ str(f_num) + '.png')
     
